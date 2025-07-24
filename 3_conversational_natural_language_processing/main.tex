@@ -1,0 +1,86 @@
+
+\documentclass[11pt]{article}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{amsmath, amssymb}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+\title{Comprehensive Notes on Large Language Model Training, Alignment and Task--Oriented Dialogue}
+\author{Compiled for Overleaf}
+\date{\today}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+This file distills modern knowledge on how large language models (LLMs) are \textit{pre‑trained}, \textit{aligned} with human preferences, and deployed for \textit{task‑oriented dialogue}.  It integrates classical formulations (\emph{policy‑gradient}, \emph{PPO}) with cutting‑edge ideas (\emph{Direct Preference Optimisation}, \emph{self‑feedback rewards}) and continual‑learning schemes (\emph{CLEAR}, \emph{DDPT}).  Each major section begins with a brief high‑level description, followed by detailed exposition, equations, and citations up to mid‑2025.
+\end{abstract}
+
+\section{From Next‑Token Prediction to Aligned Policies}
+\textbf{Overview:}  An LLM is first trained as a density model over text and then re‑interpreted as a stochastic \emph{policy} \(\pi_\theta(y_t \mid x_{<t})\).  Alignment methods shape this policy to satisfy human or automated preferences.
+
+\subsection{Pre‑training}
+LLMs minimise the token‑level cross‑entropy loss
+\[
+  \mathcal{L}_{\text{CE}} = -\mathbb{E}_{x,y\sim \mathcal{D}} \log p_\theta (y \mid x),
+\]
+over web‑scale corpora, capturing broad world knowledge but without task specialisation.  Scaling laws show perplexity follows a power law in data and parameters \citep{brown2020language}.
+
+\subsection{Supervised Fine‑Tuning (SFT)}
+Given instruction pairs \(\mathcal{D}_{\text{SFT}} = \{(x,y)\}\), the objective stays cross‑entropy but on higher‑quality data.  SFT notably improved helpfulness in \emph{InstructGPT} \citep{ouyang2022instructgpt}.
+
+\subsection{Reinforcement‑Learning Alignment}
+\paragraph{RL foundations.}  We model trajectories \((s_t,a_t,r_t)\) with discounted return \(G_t=\sum_{k\ge0}\gamma^k r_{t+k}\).  The policy‑gradient theorem gives
+\[
+  \nabla_\theta J(\theta)=\mathbb{E}\big[\nabla_\theta \log \pi_\theta(a_t|s_t)\,A^\pi(s_t,a_t)\big].
+\]
+\paragraph{PPO.}  Proximal Policy Optimisation clips the surrogate objective, keeping updates inside a trust region and stabilising GPU‑scale RLHF \citep{schulman2017ppo}.  In the LLM context, the \emph{state} is the whole prompt history, the \emph{action} a next token.
+
+\subsection{Reward Modelling and Preference Optimisation}
+Human annotators label preference triples \((x,y^+,y^-)\).  A reward model \(r_\phi\) is trained with a Bradley–Terry loss, after which PPO maximises this scalar signal (\emph{RLHF}).  \emph{Direct Preference Optimisation} (DPO) shows the optimal PPO solution is available in closed form and can be reached with a simple logistic loss, removing the RL loop \citep{rafailov2023dpo}.
+
+\subsection{Reinforcement Learning from Self‑Feedback (RLSF)}
+Instead of human labels, the model uses its calibrated confidence as reward, fine‑tuning itself while iteratively improving both generation and evaluation capability \citep{sutton2024rlsf}.  Closely related are \emph{Self‑Rewarding Language Models} \citep{yuan2024srlm} and \emph{ReST} \citep{gulcehre2023rest}.
+
+\section{Task‑Oriented Dialogue \& Continual Learning}
+\textbf{Overview:}  Task‑oriented dialogue (TOD) agents must fill domain slots, query APIs, and complete user goals without forgetting past domains.
+
+\subsection{Ontologies and Benchmarks}
+The \textsc{MultiWOZ} corpus (\(\approx10\text{k}\) dialogues, seven domains) remains a canonical TOD benchmark \citep{budzianowski2018multiwoz}.  \textsc{EmoWOZ} augments it with 83\,k emotion labels, enabling affect‑aware systems \citep{li2023emowoz}.
+
+\subsection{Toolkits}
+\textbf{ConvLab‑2/3} wrap data loaders, user simulators, policy trainers and dashboards in a unified JSON schema, accelerating reproducible research \citep{zhu2020convlab2, zhu2022convlab3}.
+
+\subsection{Continual Dialogue Policies}
+\paragraph{DDPT.}  The \emph{Dynamic Dialogue Policy Transformer} encodes domain, slot, and action descriptions in natural language, transferring zero‑shot to unseen domains without parameter growth \citep{geishauser2022ddpt}.  
+\paragraph{CLEAR.}  \emph{Continual Learning with Experience And Replay} blends on‑policy learning with replayed trajectories and behavioural cloning, striking a balance between plasticity and stability \citep{rolnick2019clear}.
+
+\section{Agentic Workflows and Hallucination Mitigation}
+\textbf{Overview:}  Retrieval‑augmented generation and self‑verification chains ground answers and curb hallucinations.
+
+\subsection{Chain‑of‑Verification}
+The model drafts a response, formulates fact‑checking questions, answers them independently, then revises itself.  This \emph{CoVe} algorithm reduces hallucinations across open‑book QA and long‑form generation \citep{dhuliawala2023cove}.
+
+\subsection{Industrial Adoption}
+A 2025 Financial Times report documents how Google, Amazon, Cohere and others embed RAG and evaluator LLMs in production systems to limit hallucinations \citep{ft2025hallucinations}.
+
+\section{Geometric Signals: Grokking and Intrinsic Dimension}
+\textbf{Overview:}  \emph{Grokking}—delayed generalisation after over‑fit—can be predicted by a drop in the local intrinsic dimension (LID) of hidden embeddings.
+
+Measuring LID throughout training reveals early warnings of forthcoming grokking events and correlates with flatter minima \citep{junior2025lid}.  Recent diffusion‑based estimators scale this metric to billion‑parameter regimes \citep{tempczyk2022lid}.
+
+\section{Full Pipeline Summary}
+\begin{enumerate}
+\item \textbf{Pre‑train} on web‑scale corpora.
+\item \textbf{SFT} on curated instructions.
+\item \textbf{Align} via PPO‑based RLHF, DPO, or RLSF.
+\item \textbf{Deploy} TOD agents with DDPT + CLEAR on MultiWOZ/EmoWOZ using ConvLab‑3.
+\item \textbf{Guard} with retrieval and Chain‑of‑Verification to limit hallucinations.
+\item \textbf{Monitor} intrinsic dimension to anticipate grokking or collapse.
+\end{enumerate}
+
+\newpage
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}

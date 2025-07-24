@@ -1,0 +1,81 @@
+
+\documentclass{article}
+\usepackage{amsmath,amsfonts}
+\usepackage{geometry}
+\usepackage{hyperref}
+\geometry{margin=1in}
+
+\title{Advanced Neural Network Architectures -- Lecture Notes}
+\author{Compiled in the Style of Andrej Karpathy (July 2025)}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Optimization, Inductive Bias \& IID Assumption}
+Gradient-based optimizers not only influence \emph{how fast} a solution is found, but \emph{which} solution is reachable in a non-convex landscape. 
+For a weight $W_{ij}$:
+\[
+\frac{\partial \mathcal{L}}{\partial W_{ij}} = 
+\lim_{\epsilon\to 0} \frac{\mathcal{L}(W_{ij}) - \mathcal{L}(W_{ij}+\epsilon)}{\epsilon}.
+\]
+Data-centric AI (Andrew Ng, 2021) emphasizes curating high-quality data, embedding inductive bias directly into the dataset. 
+Continual learning studies (Saxe et al., 2013) reveal that interference often turns parallel tasks into effectively sequential ones.
+
+\section{Language Modelling Evolution}
+\subsection{Feed‑Forward \texorpdfstring{$n$}{n}-Gram Models}
+Assume an $n^{\text{th}}$‑order Markov property: context length is capped, constraining long‑range dependencies.
+
+\subsection{Recurrent Neural Networks}
+Pros: compact, $\mathcal{O}(1)$ inference, explicit recurrence. %
+Cons: exploding / vanishing gradients (Pascanu et al., 2013), sequential training, limited capacity.
+
+\section{Attention and Transformers}
+\subsection{Scaled Dot‑Product Attention}
+\[
+\text{Attention}(Q,K,V)=\operatorname{softmax}\!\bigl(QK^{\top}/\sqrt{d_k}\bigr)V.
+\]
+
+\subsection{Block Structure}
+\begin{enumerate}
+  \item \textbf{Temporal Mixing}: multi‑head attention + residual.
+  \item \textbf{Feature Mixing}: position‑wise MLP (GeLU/SwiGLU).
+\end{enumerate}
+At billion‑parameter scale, the feed‑forward network dominates FLOPs (Wei et al., 2024).
+
+\subsection{Positional Encoding}
+\begin{itemize}
+  \item Sinusoidal (absolute)
+  \item Learned embeddings
+  \item Rotary Position Embedding (RoPE) (Su et al., 2021)
+\end{itemize}
+
+\section{Scaling and Efficient Fine‑Tuning}
+\begin{itemize}
+  \item \textbf{Megatron‑LM}: tensor + pipeline model parallelism for multi‑billion LMs (Shoeybi et al., 2019).
+  \item \textbf{LoRA}: low‑rank adapters cut trainable parameters by $\sim10\,000\times$ (Hu et al., 2021).
+  \item \textbf{gMLP}: gated MLPs rival attention while saving memory (Liu et al., 2021).
+\end{itemize}
+
+\section{Known Limitations}
+Transformers still suffer from over‑squashing/smoothing (Barbero et al., 2024). 
+Softmax temperature steers representation rank and collapse (Masarczyk et al., 2025).
+
+\section{Beyond Standard Transformers}
+RWKV (Peng et al., 2023) merges RNN‑style inference with Transformer‑style training, using \emph{time‑mix} and \emph{channel‑mix} blocks for linear‑time decoding.
+
+\section{Paper Checklist}
+\begin{enumerate}
+  \item Saxe et al.\ (2013)
+  \item Pascanu et al.\ (2013)
+  \item Vaswani et al.\ (2017)
+  \item Su et al.\ (2021)
+  \item Shoeybi et al.\ (2019)
+  \item Hu et al.\ (2021)
+  \item Liu et al.\ (2021)
+  \item Wei et al.\ (2024)
+  \item Barbero et al.\ (2024)
+  \item Masarczyk et al.\ (2025)
+\end{enumerate}
+
+\end{document}
