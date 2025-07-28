@@ -190,6 +190,7 @@ Video-Language-Models
 
 VLMs with Tools: Visual PRogramming
 ViperGPT (paper that won competition)
+https://openaccess.thecvf.com/content/CVPR2024/papers/Hu_Visual_Program_Distillation_Distilling_Tools_and_Programmatic_Reasoning_into_Vision-Language_CVPR_2024_paper.pdf
 
 
 

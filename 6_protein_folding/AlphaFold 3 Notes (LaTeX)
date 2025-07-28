@@ -1,0 +1,97 @@
+
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\title{AlphaFold 3 --- A Karpathy-Style Walkthrough for the Curious Layperson}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section*{Why this matters (Eroom's Law vs. smarter computation)}
+Eroom's Law observes that drug discovery has become slower and more expensive over time. A canonical pipeline is:
+\begin{center}
+Biology $\rightarrow$ Chemistry $\rightarrow$ Execution \\
+Target Discovery $\rightarrow$ Target Validation $\rightarrow$ Hit ID \& Hit-to-Lead $\rightarrow$ Lead Optimization $\rightarrow$ Pre-clinical $\rightarrow$ Clinical
+\end{center}
+Key bottlenecks: (1) understanding disease biology, (2) molecule design, (3) asserting compound quality (high failure rates), (4) lack of generalization across targets. Accurate structure and interaction prediction compress search and iteration.
+
+\section*{From AF2 to Multimer to AF3}
+\textbf{AF2 (2021)}: single-chain protein structures from sequence, using MSAs/templates processed by Evoformer; CASP14 winner.\\
+\textbf{AF-Multimer (2022)}: extends to multi-chain complexes.\\
+\textbf{AF3 (2024)}: unified handling of proteins, DNA/RNA, ligands, ions, modified residues. Architectural shift: Evoformer $\rightarrow$ Pairformer (simplified trunk), Structure module $\rightarrow$ Diffusion module (conditional generative modeling of continuous 3D coordinates).
+
+\section*{Pipeline overview}
+\textbf{Featurization} (sequences, ligands/ions, MSAs, templates) $\rightarrow$ \textbf{Pairformer trunk} (single and pair representations with triangle updates and attention with pair bias) $\rightarrow$ \textbf{Diffusion module} (3D coordinate denoising) $\rightarrow$ \textbf{Confidence head} (ranking, calibration, inference-time scaling).
+
+\section*{Tokens, graphs, and representations}
+Biopolymer tokens are residues; ligand/ion tokens are atoms. A heterogeneous graph encodes covalent and spatial relations. The model learns SE(3)-aware geometry via pair features and data augmentation with random rotations/translations.
+
+\section*{Pairformer sketch}
+Let $S$ be single features (per token) and $P$ be pair features (per token pair). A block includes: triangle updates on $P$ (incoming/outgoing), triangle self-attention (start/end), transitions on $P$, single attention with pair bias on $S$, transitions on $S$. This retains the powerful pair field of AF2 while streamlining for conditional generation.
+
+\section*{Diffusion for coordinates}
+We place all atom coordinates into $X \in \mathbb{R}^{N\times 3}$. With a variance-preserving forward process:
+\[
+q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}(\alpha_t \mathbf{x}_0,\ \sigma_t^2 I), \quad
+\mathbf{x}_t = \alpha_t \mathbf{x}_0 + \sigma_t \epsilon,\ \epsilon \sim \mathcal{N}(0,I).
+\]
+The reverse model $p_\theta(\mathbf{x}_{t-1}\mid \mathbf{x}_t, c)$ (condition $c$ from Pairformer) predicts a mean and variance; a common training loss predicts noise or velocity with MSE:
+\[
+\mathcal{L}_{\text{diff}} = \mathbb{E}_{t,\mathbf{x}_0,\epsilon}\bigl[\lVert \epsilon - \epsilon_\theta(\mathbf{x}_t,t,c)\rVert_2^2\bigr].
+\]
+Soft chemistry constraints (bond lengths/angles, chirality) can be encouraged by loss terms and post-processing. Equivariance is promoted through relative-geometry features and SE(3) data augmentation.
+
+\section*{Permutation symmetry}
+Homomeric chains and multiple identical ligands induce label symmetry. Training/evaluation use permutation-invariant matching (e.g., Hungarian alignment) prior to computing losses like MSE/RMSD.
+
+\section*{Confidence head and inference-time scaling}
+Confidence heads generalize AF2's pLDDT/pTM ideas to complexes/ligands and enable ranking of multiple diffusion samples. More samples $\Rightarrow$ better maxima at higher compute.
+
+\section*{Applications to design}
+Structure-based design benefits: plausible binding poses and interface hypotheses, which downstream scorers (ML or physics) can evaluate. Binding affinity relates to $ \Delta G \approx -kT \ln K_d $, but AF3 itself is not a free-energy calculator. Pair AF3 outputs with ADMET prediction, MD stability checks, and quantum calculations near reactive centers.
+
+\section*{An agentic orchestration sketch}
+\begin{enumerate}[label=\arabic*.]
+\item Hypothesis agent (biology) proposes targets and mechanisms.
+\item Structure agent calls AF3, performs multi-sample, ranks by confidence.
+\item Scoring agent performs fast ML scoring then physics-based checks.
+\item Medicinal chemistry agent proposes edits under synthetic constraints.
+\item ADMET agent screens liabilities (permeability, clearance, toxicity).
+\item Simulation agent runs short MD and local quantum refinement.
+\item Planner agent maintains a multi-objective Pareto frontier and plans the next batch.
+\item Learning loop ingests assay results and updates priors.
+\end{enumerate}
+
+\section*{Metrics and objectives}
+RMSD: $ \mathrm{RMSD} = \sqrt{\frac{1}{N}\sum_i \lVert \hat{\mathbf{x}}_i - \mathbf{x}_i \rVert^2 } $.\\
+Interface RMSD focuses on interface atoms only.\\
+Example chemistry penalty:
+\[
+\mathcal{L}_{\text{bond}} = \sum_{(i,j)\in \mathcal{B}} w_{ij}\bigl(\lVert\mathbf{x}_i-\mathbf{x}_j\rVert - \ell_{ij}^\ast\bigr)^2.
+\]
+Overall (schematic): $ \mathcal{L} = \lambda_{\text{diff}}\mathcal{L}_{\text{diff}} + \lambda_{\text{geom}}\mathcal{L}_{\text{bond}} + \lambda_{\text{conf}}\mathcal{L}_{\text{conf}} $.
+
+\section*{Cheat sheet}
+Multi-sample + confidence rank; treat poses as hypotheses; verify chemistry sanity; push promising ideas quickly into ADMET and MD; track generalization across targets.
+
+\section*{Selected references (starter, non-exhaustive)}
+\begin{itemize}
+\item Jumper et al., \textit{Nature} (2021): AlphaFold 2.
+\item Evans et al., \textit{bioRxiv} (2021; 2022 updates): AlphaFold-Multimer.
+\item Tunyasuvunakool et al., \textit{Nature} (2021): Proteome-wide predictions.
+\item DeepMind/Isomorphic Labs (2024): AlphaFold 3 article/preprint.
+\item Scannell et al., \textit{Nat. Rev. Drug Discov.} (2012): Eroom's Law.
+\item Satorras et al., \textit{ICML} (2021): E(n)-Equivariant GNNs.
+\item Hoogeboom et al., \textit{ICLR} (2022): Equivariant diffusion for 3D molecules.
+\item Berman et al., \textit{Nucleic Acids Res.} (2000): wwPDB.
+\end{itemize}
+
+\end{document}
